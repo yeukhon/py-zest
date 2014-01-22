@@ -2,6 +2,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import requests
+
+from zest_exceptions import (
+    ZestAssertStatusCode,
+    ZestAssertLength,
+    ZestAssertHeader,
+    ZestAssertBody
+)
+
 def load(data):
     """ Load a dictionary into a new instance of ZestScript. """
 
@@ -55,6 +64,10 @@ class ZestScript(object):
         self.index = index
         self.elementType = elementType
 
+    def run(self):
+        for statement in self.statements:
+            statement.run()
+
     def to_dict(self):
         script = dict(
             type = self.type,
@@ -101,6 +114,75 @@ class ZestStatement(object):
         self.transformations = transformations or []
         self.index = index
         self.elementType = elementType
+
+    def run(self):
+        #TODO: Zest needs to distinguish data and params
+        if self.method == "GET":
+            prepare_r = requests.Request(self.method, self.url,
+                headers=self.headers, params=self.data).prepare()
+        else:
+            prepare_r = requests.Request(self.method, self.url,
+                headers=self.headers, data=self.data).prepare()
+        session = requests.session()
+        resp = session.send(prepare_r)
+        self._run_assertions(resp)
+
+    def _run_assertions(self):
+        for assertion in self.assertions:
+            if assertion["elementType"] == "ZestAssertStatusCode":
+                self._assert_status_code(resp, assertion)
+            elif assertion["elementType"] == "ZestAssertLength":
+                self._assert_length(resp, assertion)
+            elif assertion["elementType"] == "ZestAssertHeader":
+                self._assert_header(resp, assertion)
+            elif assertion["elementType"] == "ZestAssertBody":
+                self._assert_body(resp, assertion)
+
+    def _assert_status_code(resp, assertion):
+        if int(resp.status_code) != int(assertion["code"]):
+            raise ZestAssertStatusCodeFail("Expecting {e} but received {a}".format(
+                e=assertion["code"], a=resp.status_code))
+
+    def _assert_length_code(resp, assertion):
+        if resp.headers.get("transfer-encoding") == "chunked":
+            raise ZestAssertLengthFail("Expecting Content-Length in the header but \
+response is sent with chunked transfer encoding.")
+        else:
+            content_length = resp.headers.get("content-length")
+            if content_length:
+                if int(content_length) != int(assertion["length"]):
+                    raise ZestAssertLengthFail("Expecting content-length be {e} long but \
+received {a} bytes instead.".format(e=assertion["length"], a=content_length))
+            else:
+                raise ZestAssertLengthFail("Expecting Content-Length in the header but \
+there is none in the response header.")
+
+    def _assert_header(resp, assertion):
+        #TODO: need to dig down how to implement this with regex and conditional checks
+        #      so, we now only allow assert EQUAL
+        headers = filter(None, assertion["headers"].split("\r\n"))
+        e_headers = {}
+        for header in headers:
+            name, value = header.split(":")
+            e_headers[name.strip()] = value.strip()
+        for name, value in e_headers.items():
+            actual = resp.headers.get(name)
+            if actual:
+                if actual != value:
+                    raise ZestAssertHeaderFail("Expecting {h}: {ev} but received {h}: {av}.".format(
+                        h=name, ev=value, av=actual))
+            else:
+                raise ZestAssertHeaderFail("Expecting {h}: {ev} but {h} not found.".format(
+                        h=name, ev=value))
+
+    def _assert_body(resp, assertion):
+        #TODO: similar to _assert_header, I am going to implement EQUAL only
+        if "json" in resp.headers["content-type"]:
+            actual = str(resp.json())
+        else:
+            actual = resp.text
+        if actual != assertion["body"]:
+            raise ZestAssertBodyFail("Body does not match.")
 
     def to_dict(self):
         statement = dict(

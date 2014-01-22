@@ -4,7 +4,9 @@
 
 from setuptools import setup
 
-install_requires = []
+install_requires = [
+    "requests"
+]
 
 setup(name="py-zest",
     version="0.0",
