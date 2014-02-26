@@ -1,0 +1,165 @@
+{
+  "about": "This is a demo zest script for server.py",
+  "zestVersion": 1,
+  "generatedBy": "human",
+  "title": "testing purpose",
+  "description": "A demo zest script for server.py",
+  "prefix": "http://localhost:5000/",
+  "type": "ZestScript",
+  "parameters": [],
+  "tokens": {
+    "tokenStart": "{{",
+    "tokenEnd": "}}",
+    "tokens": {},
+    "elementType": "ZestScript"
+  },
+  "statements": [
+    {
+      "url": "http://localhost:5000/",
+      "data": "",
+      "method": "GET",
+      "headers": "",
+      "response": {
+        "headers": "Content-Type: text/html;",
+        "body": "Welcome to a home page",
+        "statusCode": 200,
+        "elementType": "ZestResponse"
+      },
+      "transformations": [],
+      "assertions": [
+        {
+          "code": 200,
+          "elementType": "ZestAssertStatusCode"
+        },
+        {
+          "length": 23,
+          "elementType": "ZestAssertLength"
+        },
+        {
+          "body": "Welcome to a home page.",
+          "elementType": "ZestAssertBody"
+        }
+      ],
+      "index": 1,
+      "elementType": "ZestRequest"
+    },
+    {
+      "url": "http://localhost:5000/contact",
+      "data": "",
+      "method": "GET",
+      "headers": "",
+      "response": {
+      "headers": "Content-Type: text/html; charset=utf-8\r\nContent-Length: 37\r\n",
+        "statusCode": 200,
+        "elementType": "ZestResponse"
+      },
+      "transformations": [],
+      "assertions": [
+        {
+          "code": 200,
+          "elementType": "ZestAssertStatusCode"
+        },
+        {
+          "length": 37,
+          "elementType": "ZestAssertLength"
+        }
+      ],
+      "index": 2,
+      "elementType": "ZestRequest"
+    },
+    {
+      "url": "http://localhost:5000/contact",
+      "data": "",
+      "method": "PUT",
+      "headers": "",
+      "response": {
+        "statusCode": 405,
+        "elementType": "ZestResponse"
+      },
+      "transformations": [],
+      "assertions": [
+        {
+          "code": 405,
+          "elementType": "ZestAssertStatusCode"
+        }
+      ],
+      "index": 3,
+      "elementType": "ZestRequest"
+    },
+    {
+      "url": "http://localhost:5000/contact",
+      "data": "email=foo@bar.com&message=hello",
+      "method": "POST",
+      "headers": "",
+      "response": {
+        "headers": "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 41\r\n",
+        "body": "I got your message, thank you. Stay tune!",        
+        "statusCode": 200,
+        "elementType": "ZestResponse"
+      },
+      "assertions": [
+        {
+          "code": 200,
+          "elementType": "ZestAssertStatusCode"
+        },
+        {
+          "length": 41,
+          "elementType": "ZestAssertLength"
+        },
+        {
+          "body": "I got your message, thank you. Stay tune!",
+          "elementType": "ZestAssertBody"
+        }
+      ],
+      "index": 4,
+      "elementType": "ZestRequest"
+    },
+    {
+      "url": "http://localhost:5000/contact",
+      "data": "message=hello",
+      "method": "POST",
+      "headers": "",
+      "response": {
+        "headers": "HTTP/1.0 403 FORBIDDEN\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 23\r\n",
+        "body": "email field is required",
+        "statusCode": 403,
+        "elementType": "ZestResponse"
+      },
+      "assertions": [
+        {
+          "code": 403,
+          "elementType": "ZestAssertStatusCode"
+        }
+      ],
+      "index": 5,
+      "elementType": "ZestRequest"
+   },
+   {
+      "url": "http://localhost:5000/contact",
+      "data": "email=foo&message=hello",
+      "method": "POST",
+      "headers": "",
+      "response": {
+        "headers": "HTTP/1.0 403 FORBIDDEN\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 32\r\n",
+        "body": "foo is not a valid email address",
+        "statusCode": 403,
+        "elementType": "ZestResponse"
+      },
+      "assertions": [
+        {
+          "code": 403,
+          "elementType": "ZestAssertStatusCode"
+        },
+        {
+          "body": "foo is not a valid email address",
+          "elementType": "ZestAssertBody"
+        }
+      ],
+      "index": 6,
+      "elementType": "ZestRequest"
+   }
+   ],
+  "authentication": [],
+  "index": 0,
+  "elementType": "ZestScript"
+}

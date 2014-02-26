@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import requests
+import urlparse
 
 from zest_exceptions import (
     ZestAssertStatusCode,
@@ -19,13 +20,13 @@ def load(data):
         try:
             if z_attr == "statements":
                 for statement in data[z_attr]:
-                    s = ZestStatement()
-                    for s_attr in s.__slots__:
-                        setattr(s, s_attr, statement[s_attr])
+                    s = ZestStatement(zest=z)
+                    for s_attr in s.__attributes__:
+                        setattr(s, s_attr, statement.get(s_attr))
                     z.statements.append(s)
             else:
-                setattr(z, z_attr, data[z_attr])
-        except KeyError:
+                setattr(z, z_attr, data.get(z_attr))
+        except KeyError as e:
             raise KeyError("{attr} is missing from the import Zest script.".format(
                                 attr=z_attr))
     return z
@@ -36,7 +37,7 @@ class ZestScript(object):
     # only the following top-level attributes are allowed.
     __slots__ = ["type", "about", "zestVersion", "generatedBy",
         "title", "description", "prefix", "parameters", "statements",
-        "authentication", "index", "elementType", "report"]
+        "doSequence", "authentication", "index", "elementType", "report"]
 
     ZEST_VERSION = 0.3
     GENERATED_BY = "PyZest"
@@ -68,9 +69,10 @@ class ZestScript(object):
         self.report = None
 
     def run(self):
-        self.report = {"passed": 0, "failed": 0, "assertions": None}
+        self.report = {"passed": 0, "failed": 0, "assertions": []}
         for statement in self.statements:
-            self.report["assertions"].append(statement.run())
+            result = statement.run()
+            self.report["assertions"].append(result)
         passes, fails = self._count_pass_fail(self.report["assertions"])
         self.report["passed"] = passes
         self.report["failed"] = fails
@@ -79,7 +81,7 @@ class ZestScript(object):
         passes = 0
         fails = 0
         for statement_assert in assertions:
-            for assertion in statement_assert:
+            for assertion in statement_assert["assertions"]:
                 if assertion["passed"] is True:
                     passes += 1
                 else:
@@ -116,7 +118,7 @@ class ZestStatement(object):
     """ Interface for Zest statement. """
 
     # only the following attributes are allowed.
-    __slots__ = ["url", "data", "method", "headers", "response",
+    __attributes__ = ["url", "data", "method", "headers", "response",
         "assertions", "transformations", "index", "elementType"]
 
     def __init__(self, url=None, data=None, method=None, headers=None,
@@ -140,11 +142,14 @@ class ZestStatement(object):
             prepare_r = requests.Request(self.method, self.url,
                 headers=self.headers, params=self.data).prepare()
         else:
+            _data = self.data
+            if not isinstance(self.data, dict):
+                _data = urlparse.parse_qs(self.data)
             prepare_r = requests.Request(self.method, self.url,
-                headers=self.headers, data=self.data).prepare()
+                headers=self.headers, data=_data).prepare()
         session = requests.session()
         resp = session.send(prepare_r)
-        self._run_assertions(resp)
+        return self._run_assertions(resp)
 
     def _set_result(self, assert_type, passed, expectation=None, result=None, msg=None):
         if passed:
@@ -157,7 +162,7 @@ class ZestStatement(object):
                     expectation=expectation, result=result)
             return {"assert_type": assert_type, "passed": False, "msg": msg}
 
-    def _run_assertions(self):
+    def _run_assertions(self, resp):
         statement_report = {"url": self.url, "assertions": []}
         assertions = statement_report["assertions"]
         for assertion in self.assertions:
@@ -171,14 +176,14 @@ class ZestStatement(object):
                 assertions.append(self._assert_body(resp, assertion))
         return statement_report
 
-    def _assert_status_code(resp, assertion):
+    def _assert_status_code(self, resp, assertion):
         if int(resp.status_code) != int(assertion["code"]):
             return self._set_result("ZestAssertStatusCode", False,
                 expectation=assertion["code"], result=resp.status_code)
         else:
             return self._set_result("ZestAssertStatusCode", True)
 
-    def _assert_length_code(resp, assertion):
+    def _assert_length(self, resp, assertion):
         if resp.headers.get("transfer-encoding") == "chunked":
             return self._set_result("ZestAssertLength", False,
                 msg="Expecting Content-Length in the header but response is sent with chunked transfer encoding.")
@@ -197,7 +202,7 @@ received {resukt} bytes instead.")
                 return self._set_result("ZestAssertLength", False,
                     msg="Expecting Content-Length in the response header but there is none.")
 
-    def _assert_header(resp, assertion):
+    def _assert_header(self, resp, assertion):
         #TODO: need to dig down how to implement this with regex and conditional checks
         #      so, we now only allow assert EQUAL
         headers = filter(None, assertion["headers"].split("\r\n"))
@@ -220,7 +225,7 @@ received {resukt} bytes instead.")
                     result=name,
                     msg="Expecting {expectation} in the response header but there is none.")
 
-    def _assert_body(resp, assertion):
+    def _assert_body(self, resp, assertion):
         #TODO: similar to _assert_header, I am going to implement EQUAL only
         if "json" in resp.headers["content-type"]:
             actual = str(resp.json())
