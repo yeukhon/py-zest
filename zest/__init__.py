@@ -197,7 +197,7 @@ class ZestStatement(object):
                         expectation=assertion["length"],
                         result=content_length,
                         msg="Expecting content-length be {expectation} byte long but \
-received {resukt} bytes instead.")
+received {result} bytes instead.")
             else:
                 return self._set_result("ZestAssertLength", False,
                     msg="Expecting Content-Length in the response header but there is none.")
